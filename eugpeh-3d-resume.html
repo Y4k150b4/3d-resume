@@ -1,0 +1,1648 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EugPeh | Interactive 3D Resume by Eugene Peh</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500&amp;family=Space+Grotesk:wght@500;600&amp;display=swap');
+        
+        :root {
+            --bg: #0f172a;
+            --accent: #22c55e;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Inter', system_ui, sans-serif;
+            background: #0f172a;
+            color: #e2e8f0;
+            overflow: hidden;
+            height: 100vh;
+        }
+        
+        #three-canvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+            touch-action: none;
+        }
+        
+        .ui-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 100;
+            pointer-events: none;
+        }
+        
+        .header {
+            background: linear-gradient(to bottom, rgba(15, 23, 42, 0.95), transparent);
+            padding: 16px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            pointer-events: auto;
+        }
+        
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .logo-dot {
+            width: 10px;
+            height: 10px;
+            background: #22c55e;
+            border-radius: 50%;
+            box-shadow: 0 0 12px #22c55e;
+        }
+        
+        .title {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 22px;
+            font-weight: 600;
+            letter-spacing: -0.02em;
+        }
+        
+        .subtitle {
+            font-size: 13px;
+            color: #64748b;
+            margin-top: 2px;
+        }
+        
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .btn {
+            pointer-events: auto;
+            background: rgba(226, 232, 240, 0.1);
+            border: 1px solid rgba(226, 232, 240, 0.2);
+            color: #e2e8f0;
+            padding: 8px 16px;
+            border-radius: 9999px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.23, 1, 0.32, 1);
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            text-decoration: none;
+        }
+        
+        .btn:hover {
+            background: rgba(226, 232, 240, 0.15);
+            border-color: rgba(226, 232, 240, 0.4);
+            transform: translateY(-1px);
+        }
+        
+        .btn-primary {
+            background: #22c55e;
+            color: #0f172a;
+            border-color: #22c55e;
+            font-weight: 600;
+        }
+        
+        .btn-primary:hover {
+            background: #16a34a;
+            border-color: #16a34a;
+        }
+        
+        .instructions {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(15, 23, 42, 0.85);
+            border: 1px solid rgba(226, 232, 240, 0.15);
+            padding: 10px 20px;
+            border-radius: 9999px;
+            font-size: 13px;
+            color: #94a3b8;
+            pointer-events: auto;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            backdrop-filter: blur(12px);
+        }
+        
+        .progress {
+            position: fixed;
+            top: 80px;
+            right: 24px;
+            background: rgba(15, 23, 42, 0.9);
+            border: 1px solid rgba(226, 232, 240, 0.15);
+            padding: 12px 18px;
+            border-radius: 16px;
+            font-size: 13px;
+            pointer-events: auto;
+            min-width: 180px;
+            backdrop-filter: blur(12px);
+        }
+        
+        .progress-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        
+        .progress-bar {
+            height: 4px;
+            background: rgba(226, 232, 240, 0.1);
+            border-radius: 9999px;
+            overflow: hidden;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(to right, #22c55e, #4ade80);
+            transition: width 0.4s cubic-bezier(0.23, 1, 0.32, 1);
+        }
+        
+        .modal {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0.95);
+            width: 92%;
+            max-width: 520px;
+            background: #1e2937;
+            border: 1px solid rgba(226, 232, 240, 0.2);
+            border-radius: 20px;
+            padding: 28px;
+            z-index: 200;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.2s cubic-bezier(0.23, 1, 0.32, 1);
+            box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.4);
+            pointer-events: auto;
+        }
+        
+        .modal.visible {
+            opacity: 1;
+            visibility: visible;
+            transform: translate(-50%, -50%) scale(1);
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 20px;
+        }
+        
+        .modal-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            background: rgba(34, 197, 94, 0.15);
+            color: #4ade80;
+            border-radius: 9999px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+        
+        .modal h2 {
+            font-size: 22px;
+            font-weight: 600;
+            line-height: 1.2;
+            color: #f1f5f9;
+        }
+        
+        .modal .company {
+            color: #64748b;
+            font-size: 15px;
+            margin-top: 4px;
+        }
+        
+        .modal .period {
+            color: #94a3b8;
+            font-size: 13px;
+            margin-top: 2px;
+        }
+        
+        .modal-content {
+            max-height: 55vh;
+            overflow-y: auto;
+            padding-right: 8px;
+        }
+        
+        .modal-content::-webkit-scrollbar {
+            width: 4px;
+        }
+        
+        .modal-content::-webkit-scrollbar-thumb {
+            background: #475569;
+            border-radius: 2px;
+        }
+        
+        .section-title {
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #64748b;
+            margin: 18px 0 8px;
+        }
+        
+        .description {
+            font-size: 14.5px;
+            line-height: 1.65;
+            color: #cbd5e1;
+        }
+        
+        .achievements {
+            list-style: none;
+        }
+        
+        .achievements li {
+            position: relative;
+            padding-left: 22px;
+            margin-bottom: 8px;
+            font-size: 14px;
+            color: #cbd5e1;
+        }
+        
+        .achievements li:before {
+            content: "→";
+            position: absolute;
+            left: 0;
+            color: #22c55e;
+            font-weight: bold;
+        }
+        
+        .skills-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 4px;
+        }
+        
+        .skill-tag {
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid rgba(226, 232, 240, 0.15);
+            padding: 4px 11px;
+            border-radius: 9999px;
+            font-size: 12px;
+            color: #94a3b8;
+        }
+        
+        .modal-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 24px;
+            padding-top: 20px;
+            border-top: 1px solid rgba(226, 232, 240, 0.1);
+        }
+        
+        .modal .btn {
+            flex: 1;
+            justify-content: center;
+            padding: 11px 18px;
+            font-size: 14px;
+        }
+        
+        .cert-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+            gap: 8px;
+            margin-top: 12px;
+        }
+        
+        .cert-badge {
+            background: #0f172a;
+            border: 1px solid #334155;
+            border-radius: 10px;
+            padding: 10px 12px;
+            font-size: 12px;
+            text-align: center;
+            transition: transform 0.2s ease;
+        }
+        
+        .cert-badge:hover {
+            transform: translateY(-2px);
+            border-color: #22c55e;
+        }
+        
+        .cert-name {
+            font-weight: 600;
+            color: #e0f0fe;
+            font-size: 12.5px;
+        }
+        
+        .overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.6);
+            z-index: 150;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.2s ease;
+        }
+        
+        .overlay.visible {
+            opacity: 1;
+            visibility: visible;
+        }
+        
+        .lofi-hint {
+            position: fixed;
+            bottom: 90px;
+            left: 24px;
+            font-size: 11px;
+            color: #475569;
+            pointer-events: none;
+            user-select: none;
+        }
+        
+        .delivered-check {
+            position: absolute;
+            top: -6px;
+            right: -6px;
+            background: #22c55e;
+            color: #0f172a;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: 700;
+            box-shadow: 0 0 0 3px #0f172a;
+        }
+    </style>
+</head>
+<body>
+    <!-- 3D Canvas -->
+    <canvas id="three-canvas"></canvas>
+    
+    <!-- UI Overlay -->
+    <div class="ui-overlay">
+        <!-- Header -->
+        <div class="header">
+            <div class="header-left">
+                <div class="logo">
+                    <div class="logo-dot"></div>
+                    <div>
+                        <div class="title">3D Resume</div>
+                        <div class="subtitle">EugPeh • Singapore</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="header-right">
+                <button onclick="resetCamera()" class="btn">Reset View</button>
+                <button onclick="generateResumePDF()" class="btn btn-primary">
+                    <span>↓</span> Export Resume
+                </button>
+                <a href="https://sg.linkedin.com/in/eugpeh" target="_blank" class="btn">LinkedIn</a>
+            </div>
+        </div>
+        
+        <!-- Progress -->
+        <div class="progress" id="progress-panel">
+            <div class="progress-header">
+                <div>
+                    <span style="font-weight:600; color:#e2e8f0">Experiences Delivered</span>
+                </div>
+                <div id="progress-text" style="font-weight:700; color:#4ade80; font-size:15px">0/5</div>
+            </div>
+            <div class="progress-bar">
+                <div class="progress-fill" id="progress-fill" style="width: 0%"></div>
+            </div>
+            <div style="margin-top:8px; font-size:11px; color:#64748b" id="progress-sub">Click locations on the planet to explore &amp; deliver</div>
+        </div>
+        
+        <!-- Instructions -->
+        <div class="instructions">
+            <span>🖱️ Drag to orbit • Scroll to zoom • Click glowing markers to deliver experiences</span>
+        </div>
+        
+        <div class="lofi-hint">Inspired by messenger.abeto.co • Refactored for EugPeh's journey</div>
+    </div>
+    
+    <!-- Modal -->
+    <div class="overlay" id="overlay" onclick="closeModal()"></div>
+    <div class="modal" id="modal">
+        <div class="modal-header">
+            <div>
+                <div id="modal-badge" class="modal-badge">DELIVERED</div>
+                <h2 id="modal-title"></h2>
+                <div id="modal-company" class="company"></div>
+                <div id="modal-period" class="period"></div>
+            </div>
+            <button onclick="closeModal()" style="background:none; border:none; color:#64748b; font-size:24px; cursor:pointer; line-height:1; padding:4px 8px;">×</button>
+        </div>
+        
+        <div class="modal-content" id="modal-content">
+            <!-- Dynamic content injected by JS -->
+        </div>
+        
+        <div class="modal-actions">
+            <button onclick="markAsDelivered()" class="btn btn-primary" id="deliver-btn">Mark as Delivered ✓</button>
+            <button onclick="closeModal()" class="btn">Close</button>
+        </div>
+    </div>
+    
+    <script>
+        // ==================== CONFIG & DATA ====================
+        const EXPERIENCES = {
+			education: {
+				id: 'education',
+				title: "NUS Engineering Journey",
+				company: "National University of Singapore",
+				location: "Singapore",
+				period: "2014 — 2018",
+				role: "B.Eng. Computer Engineering (Highest Distinction)",
+				description: "Graduated with Highest Distinction from NUS. Led student initiatives, contributed to open-source projects, and built strong foundations in software engineering, systems, and cybersecurity.",
+				achievements: [
+					"President of IEEE-HKN (Lambda Omega)",
+					"Project Lead for RepoSense open-source project",
+					"Built foundation for offensive security and research career"
+				],
+				skills: ["Software Engineering", "Systems", "Open Source", "Leadership", "Cybersecurity"],
+				color: "#3b82f6",
+				lat: 55,
+				lon: 25,
+				label: "NUS"
+			},
+			early: {
+				id: 'early',
+				title: "Founder Journey",
+				company: "KimeraTech",
+				location: "Singapore",
+				period: "2014 — 2017",
+				role: "Founder",
+				description: "Founded a software consultancy focused on helping SMEs digitize operations through tailored enterprise solutions.",
+				achievements: [
+					"Built a company that revolves around developing custom sales, accounting and database solutions for business",
+					"Led both product development and business growth"
+				],
+				skills: ["Entrepreneurship", "Full Stack", "Product Development", "Databases"],
+				color: "#f59e0b",
+				lat: 25,
+				lon: -70,
+				label: "KimeraTech"
+			},
+			current: {
+				id: 'current',
+				title: "Lead Security Research",
+				company: "InnoEdge Labs",
+				location: "Singapore",
+				period: "2023 — Present",
+				role: "Lead Researcher",
+				description: "Leading application security research for major Singapore organizations. Specializing in vulnerability research, exploit development, reverse engineering, and advanced offensive security.",
+				achievements: [
+                    "Advanced team's exploit research and novel attack technique development",
+					"Conducted enterprise-grade vulnerability research under NDA",
+                    "Demonstrated unique and high-impact vulnerabilities at Pwn2Own competitions",
+				],
+				skills: [
+					"Vulnerability Research",
+					"Exploit Development",
+					"Reverse Engineering",
+					"Threat Intelligence",
+					"Prompt Engineering"
+				],
+				color: "#22c55e",
+				lat: -15,
+				lon: 145,
+				label: "InnoEdge Labs"
+			},
+			certs: {
+				id: 'certs',
+				title: "Certification Arsenal",
+				company: "OffSec • GIAC • EC-Council",
+				location: "Global",
+				period: "Continuous Learning",
+				role: "Security Specialist",
+				description: "Holder of advanced offensive security certifications spanning exploit development, penetration testing, threat hunting, incident response, and enterprise defense.",
+				achievements: [
+					"OSCE3 and GXPN certified",
+					"10+ advanced cybersecurity certifications",
+					"Expertise across offensive and defensive domains"
+				],
+				skills: [
+					"OSCE3","GXPN","OSCP+","OSWA","OSDA","OSIR",
+					"OSTH","OSWP","OSSA","CEH","CHFI","ECSA","CCNA"
+				],
+				color: "#a855f7",
+				lat: -45,
+				lon: 75,
+				label: "Certifications"
+			},
+			achieve: {
+				id: 'achieve',
+				title: "Global Recognition",
+				company: "Research & Competitions",
+				location: "International",
+				period: "2015 — Present",
+				role: "Security Researcher",
+				description: "Recognized through international competitions, advanced security certifications, and contributions to Singapore's cybersecurity ecosystem.",
+				achievements: [
+					"WorldSkills Medallion for Excellence (Global Rank #8)",
+					"TISC Level 10 2024",
+					"Multiple 0-days",
+					"Pwn2Own Ireland 2025"
+				],
+				skills: [
+					"CTFs",
+					"Exploit Research",
+					"Malware Analysis",
+					"Threat Hunting",
+					"Security Research"
+				],
+				color: "#ef4444",
+				lat: 5,
+				lon: -135,
+				label: "Achievements"
+			}
+        };
+        
+        const TOTAL_EXPERIENCES = Object.keys(EXPERIENCES).length;
+        let delivered = new Set();
+        
+        // ==================== THREE.JS SETUP ====================
+        let scene, camera, renderer;
+        let planet, markers = {};
+        let isDragging = false;
+        let previousMouseX = 0, previousMouseY = 0;
+        let spherical = { theta: 1.2, phi: 1.0, radius: 22 };
+        const planetRadius = 8.5;
+        let raycaster, mouse;
+        let currentSelectedId = null;
+        let animationFrame;
+        
+        function initThree() {
+            const canvas = document.getElementById('three-canvas');
+            
+            renderer = new THREE.WebGLRenderer({ 
+                canvas: canvas, 
+                antialias: true, 
+                alpha: true,
+                powerPreference: "high-performance"
+            });
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true;
+            
+            scene = new THREE.Scene();
+            scene.fog = new THREE.Fog(0x0f172a, 35, 85);
+            
+            camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.5, 200);
+            updateCameraPosition();
+            
+            // Lights - soft lo-fi lighting
+            const hemiLight = new THREE.HemisphereLight(0xbae6fd, 0x1e3a5f, 0.7);
+            scene.add(hemiLight);
+            
+            const dirLight = new THREE.DirectionalLight(0xfff7ed, 1.1);
+            dirLight.position.set(25, 35, 15);
+            dirLight.castShadow = true;
+            dirLight.shadow.mapSize.width = 1024;
+            dirLight.shadow.mapSize.height = 1024;
+            scene.add(dirLight);
+            
+            const ambient = new THREE.AmbientLight(0x334155, 0.35);
+            scene.add(ambient);
+            
+            // Planet
+            createPlanet();
+            
+            // Decorations (trees, rocks)
+            createDecorations();
+            
+            // Markers / Delivery Locations
+            createMarkers();
+            
+            // Background stars
+            createStars();
+            
+            // Raycaster
+            raycaster = new THREE.Raycaster();
+            mouse = new THREE.Vector2();
+            
+            // Event listeners
+            window.addEventListener('resize', onResize);
+            canvas.addEventListener('mousedown', onMouseDown);
+            window.addEventListener('mouseup', onMouseUp);
+            window.addEventListener('mousemove', onMouseMove);
+            canvas.addEventListener('wheel', onWheel, { passive: false });
+            canvas.addEventListener('click', onCanvasClick);
+            
+            // Touch support
+            canvas.addEventListener('touchstart', onTouchStart, { passive: false });
+            canvas.addEventListener('touchmove', onTouchMove, { passive: false });
+            canvas.addEventListener('touchend', onTouchEnd);
+            
+            // Initial camera position hint
+            setTimeout(() => {
+                if (!isDragging) {
+                    // Gentle auto-orbit hint disabled for clean start
+                }
+            }, 1200);
+            
+            // Start render loop
+            animate();
+            
+            // Initial progress
+            updateProgressUI();
+        }
+        
+        function createPlanet() {
+            // Main planet body - low-poly-ish with nice shading
+            const geometry = new THREE.SphereGeometry(planetRadius, 48, 48);
+            
+            // Vertex color variation for terrain feel (simple procedural)
+            const colors = [];
+            const positions = geometry.attributes.position;
+            const vertex = new THREE.Vector3();
+            
+            for (let i = 0; i < positions.count; i++) {
+                vertex.fromBufferAttribute(positions, i);
+                const yNorm = (vertex.y + planetRadius) / (planetRadius * 2);
+                
+                // Simple biome coloring
+                let color;
+                if (yNorm > 0.72) {
+                    color = new THREE.Color(0x166534); // high land - forest
+                } else if (yNorm > 0.55) {
+                    color = new THREE.Color(0x4ade80); // mid - grass
+                } else if (yNorm > 0.38) {
+                    color = new THREE.Color(0x854d0e); // lower land
+                } else {
+                    color = new THREE.Color(0x1e40af); // "ocean" / low areas
+                }
+                
+                // Add some noise variation
+                const noise = Math.sin(vertex.x * 2.3 + vertex.z * 1.7) * 0.08 + Math.random() * 0.04;
+                color.offsetHSL(0, 0, noise);
+                
+                colors.push(color.r, color.g, color.b);
+            }
+            
+            geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+            
+            const material = new THREE.MeshPhongMaterial({
+                vertexColors: true,
+                flatShading: false,
+                shininess: 8,
+                polygonOffset: true,
+                polygonOffsetFactor: 1,
+                polygonOffsetUnits: 1
+            });
+            
+            planet = new THREE.Mesh(geometry, material);
+            planet.castShadow = true;
+            planet.receiveShadow = true;
+            scene.add(planet);
+            
+            // Subtle atmosphere / glow layer
+            const atmosGeo = new THREE.SphereGeometry(planetRadius * 1.035, 40, 40);
+            const atmosMat = new THREE.MeshPhongMaterial({
+                color: 0xbae6fd,
+                transparent: true,
+                opacity: 0.08,
+                shininess: 0,
+                side: THREE.BackSide
+            });
+            const atmosphere = new THREE.Mesh(atmosGeo, atmosMat);
+            scene.add(atmosphere);
+        }
+        
+        function createDecorations() {
+            // Low-poly trees and rocks scattered on planet
+            const treeCount = 38;
+            const rockCount = 22;
+            
+            for (let i = 0; i < treeCount; i++) {
+                const lat = (Math.random() - 0.5) * 140;
+                const lon = (Math.random() - 0.5) * 360;
+                const pos = latLonToVector3(lat, lon, planetRadius + 0.02);
+                const normal = pos.clone().normalize();
+                
+                const tree = createLowPolyTree();
+                tree.position.copy(pos);
+                tree.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), normal);
+                // Random slight scale and rotation around normal
+                const s = 0.65 + Math.random() * 0.55;
+                tree.scale.set(s, s * (0.85 + Math.random() * 0.3), s);
+                tree.rotateY(Math.random() * Math.PI * 2);
+                scene.add(tree);
+            }
+            
+            for (let i = 0; i < rockCount; i++) {
+                const lat = (Math.random() - 0.5) * 150;
+                const lon = (Math.random() - 0.5) * 360;
+                const pos = latLonToVector3(lat, lon, planetRadius + 0.015);
+                const normal = pos.clone().normalize();
+                
+                const rock = createRock();
+                rock.position.copy(pos);
+                rock.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), normal);
+                const s = 0.4 + Math.random() * 0.7;
+                rock.scale.setScalar(s);
+                rock.rotateY(Math.random() * Math.PI);
+                scene.add(rock);
+            }
+        }
+        
+        function createLowPolyTree() {
+            const group = new THREE.Group();
+            
+            // Trunk
+            const trunkGeo = new THREE.CylinderGeometry(0.09, 0.14, 0.95, 5);
+            const trunkMat = new THREE.MeshPhongMaterial({ color: 0x78350f, flatShading: true });
+            const trunk = new THREE.Mesh(trunkGeo, trunkMat);
+            trunk.castShadow = true;
+            trunk.receiveShadow = true;
+            group.add(trunk);
+            
+            // Foliage layers (3 cones for lowpoly look)
+            const foliageMat = new THREE.MeshPhongMaterial({ color: 0x166534, flatShading: true });
+            
+            const foliage1 = new THREE.Mesh(new THREE.ConeGeometry(0.75, 1.35, 6), foliageMat);
+            foliage1.position.y = 0.85;
+            foliage1.castShadow = true;
+            group.add(foliage1);
+            
+            const foliage2 = new THREE.Mesh(new THREE.ConeGeometry(0.55, 1.0, 6), foliageMat);
+            foliage2.position.y = 1.55;
+            foliage2.castShadow = true;
+            group.add(foliage2);
+            
+            const foliage3 = new THREE.Mesh(new THREE.ConeGeometry(0.32, 0.7, 5), foliageMat);
+            foliage3.position.y = 2.05;
+            foliage3.castShadow = true;
+            group.add(foliage3);
+            
+            return group;
+        }
+        
+        function createRock() {
+            const geo = new THREE.DodecahedronGeometry(0.45, 0);
+            const mat = new THREE.MeshPhongMaterial({ 
+                color: 0x475569, 
+                flatShading: true,
+                shininess: 3
+            });
+            const rock = new THREE.Mesh(geo, mat);
+            rock.castShadow = true;
+            rock.receiveShadow = true;
+            return rock;
+        }
+        
+        function createMarkers() {
+            Object.keys(EXPERIENCES).forEach(key => {
+                const exp = EXPERIENCES[key];
+                const pos = latLonToVector3(exp.lat, exp.lon, planetRadius + 0.15);
+                const normal = pos.clone().normalize();
+                
+                let marker;
+                
+                if (key === 'certs') {
+                    marker = createCertificationSpire(exp.color);
+                } else if (key === 'achieve') {
+                    marker = createArenaMarker(exp.color);
+                } else {
+                    marker = createHouseMarker(exp.color, key === 'current' ? 1.15 : 1.0);
+                }
+                
+                marker.position.copy(pos);
+                marker.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), normal);
+                
+                // Store reference
+                marker.userData = { id: exp.id, type: 'marker' };
+                scene.add(marker);
+                markers[exp.id] = marker;
+                
+                // Floating label sprite
+                const labelSprite = createLabelSprite(exp.label, exp.color);
+                labelSprite.position.copy(pos.clone().add(normal.clone().multiplyScalar(2.8)));
+                labelSprite.userData = { id: exp.id, type: 'label' };
+                scene.add(labelSprite);
+                markers[exp.id + '_label'] = labelSprite;
+            });
+        }
+        
+        function createHouseMarker(color, scale = 1) {
+            const group = new THREE.Group();
+            const wallMat = new THREE.MeshPhongMaterial({ color: color, flatShading: true, shininess: 4 });
+            const roofMat = new THREE.MeshPhongMaterial({ color: 0x1e2937, flatShading: true });
+            const accentMat = new THREE.MeshPhongMaterial({ color: 0xf1f5f9, flatShading: true });
+            
+            // Base / foundation
+            const base = new THREE.Mesh(new THREE.BoxGeometry(1.35 * scale, 0.35 * scale, 1.35 * scale), wallMat);
+            base.position.y = 0.17 * scale;
+            base.castShadow = true;
+            base.receiveShadow = true;
+            group.add(base);
+            
+            // Main body
+            const body = new THREE.Mesh(new THREE.BoxGeometry(1.2 * scale, 1.1 * scale, 1.2 * scale), wallMat);
+            body.position.y = 0.95 * scale;
+            body.castShadow = true;
+            body.receiveShadow = true;
+            group.add(body);
+            
+            // Roof (pyramid-ish cone with 4 sides)
+            const roof = new THREE.Mesh(new THREE.ConeGeometry(0.95 * scale, 0.85 * scale, 4), roofMat);
+            roof.position.y = 1.85 * scale;
+            roof.rotation.y = Math.PI / 4;
+            roof.castShadow = true;
+            group.add(roof);
+            
+            // Door
+            const door = new THREE.Mesh(new THREE.BoxGeometry(0.32 * scale, 0.55 * scale, 0.08 * scale), accentMat);
+            door.position.set(0, 0.65 * scale, 0.65 * scale);
+            group.add(door);
+            
+            // Windows
+            const winMat = new THREE.MeshPhongMaterial({ color: 0xfefce8, flatShading: true });
+            const win1 = new THREE.Mesh(new THREE.BoxGeometry(0.22 * scale, 0.22 * scale, 0.06 * scale), winMat);
+            win1.position.set(-0.38 * scale, 1.15 * scale, 0.64 * scale);
+            group.add(win1);
+            
+            const win2 = win1.clone();
+            win2.position.x = 0.38 * scale;
+            group.add(win2);
+            
+            // Small chimney / antenna for tech feel
+            const chimney = new THREE.Mesh(new THREE.BoxGeometry(0.18 * scale, 0.55 * scale, 0.18 * scale), roofMat);
+            chimney.position.set(0.45 * scale, 2.05 * scale, -0.35 * scale);
+            group.add(chimney);
+            
+            // Glow / highlight ring at base
+            const ringGeo = new THREE.RingGeometry(0.95 * scale, 1.05 * scale, 32);
+            const ringMat = new THREE.MeshBasicMaterial({ 
+                color: color, 
+                transparent: true, 
+                opacity: 0.35,
+                side: THREE.DoubleSide 
+            });
+            const ring = new THREE.Mesh(ringGeo, ringMat);
+            ring.rotation.x = Math.PI / 2;
+            ring.position.y = 0.02;
+            group.add(ring);
+            
+            return group;
+        }
+        
+        function createCertificationSpire(color) {
+            const group = new THREE.Group();
+            
+            // Tall base tower
+            const towerMat = new THREE.MeshPhongMaterial({ color: color, flatShading: true, shininess: 6 });
+            const tower = new THREE.Mesh(new THREE.CylinderGeometry(0.38, 0.52, 3.8, 5), towerMat);
+            tower.position.y = 1.9;
+            tower.castShadow = true;
+            group.add(tower);
+            
+            // Top crystal / beacon
+            const crystal = new THREE.Mesh(new THREE.OctahedronGeometry(0.65), new THREE.MeshPhongMaterial({ 
+                color: 0xf0abfc, 
+                flatShading: true, 
+                emissive: 0x581c87,
+                emissiveIntensity: 0.3
+            }));
+            crystal.position.y = 4.1;
+            group.add(crystal);
+            
+            // Multiple small "badge" platforms around
+            for (let i = 0; i < 5; i++) {
+                const angle = (i / 5) * Math.PI * 2;
+                const badge = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.55, 0.12, 0.55), 
+                    new THREE.MeshPhongMaterial({ color: 0xf3e8ff, flatShading: true })
+                );
+                badge.position.set(Math.cos(angle) * 0.75, 1.2 + i * 0.55, Math.sin(angle) * 0.75);
+                group.add(badge);
+            }
+            
+            // Base platform
+            const platform = new THREE.Mesh(new THREE.CylinderGeometry(1.3, 1.45, 0.25, 6), towerMat);
+            platform.position.y = 0.12;
+            group.add(platform);
+            
+            return group;
+        }
+        
+        function createArenaMarker(color) {
+            const group = new THREE.Group();
+            
+            // Circular arena base
+            const baseMat = new THREE.MeshPhongMaterial({ color: 0x334155, flatShading: true });
+            const base = new THREE.Mesh(new THREE.CylinderGeometry(1.6, 1.75, 0.4, 24), baseMat);
+            base.position.y = 0.2;
+            base.castShadow = true;
+            group.add(base);
+            
+            // Inner ring
+            const ring = new THREE.Mesh(new THREE.CylinderGeometry(1.1, 1.1, 0.25, 24), new THREE.MeshPhongMaterial({ color: color, flatShading: true }));
+            ring.position.y = 0.45;
+            group.add(ring);
+            
+            // Flag poles / banners (4 of them)
+            const poleMat = new THREE.MeshPhongMaterial({ color: 0x475569, flatShading: true });
+            for (let i = 0; i < 4; i++) {
+                const angle = (i / 4) * Math.PI * 2 + 0.4;
+                const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 2.2, 4), poleMat);
+                pole.position.set(Math.cos(angle) * 1.35, 1.3, Math.sin(angle) * 1.35);
+                group.add(pole);
+                
+                // Flag
+                const flag = new THREE.Mesh(
+                    new THREE.PlaneGeometry(0.65, 0.45), 
+                    new THREE.MeshPhongMaterial({ color: color, flatShading: true, side: THREE.DoubleSide })
+                );
+                flag.position.set(Math.cos(angle) * 1.55, 2.0, Math.sin(angle) * 1.55);
+                flag.lookAt(new THREE.Vector3(0, 2.0, 0));
+                group.add(flag);
+            }
+            
+            return group;
+        }
+        
+        function createLabelSprite(text, color) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 256;
+            canvas.height = 64;
+            const ctx = canvas.getContext('2d', { alpha: true });
+            
+            ctx.font = '600 22px "Space Grotesk", Inter, system-ui, sans-serif';
+            ctx.fillStyle = '#0f172a';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            ctx.fillStyle = '#e0f0fe';
+            ctx.fillText(text, 18, 38);
+            
+            // Accent underline
+            ctx.strokeStyle = '#' + color.toString(16).padStart(6, '0');
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(18, 46);
+            ctx.lineTo(ctx.measureText(text).width + 28, 46);
+            ctx.stroke();
+            
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.needsUpdate = true;
+            
+            const material = new THREE.SpriteMaterial({ 
+                map: texture, 
+                transparent: true,
+                depthTest: false
+            });
+            const sprite = new THREE.Sprite(material);
+            sprite.scale.set(4.2, 1.05, 1);
+            
+            return sprite;
+        }
+        
+        function createStars() {
+            const starCount = 420;
+            const positions = new Float32Array(starCount * 3);
+            const colors = new Float32Array(starCount * 3);
+            const sizes = new Float32Array(starCount);
+            
+            for (let i = 0; i < starCount; i++) {
+                const i3 = i * 3;
+                // Random far positions
+                const r = 55 + Math.random() * 45;
+                const theta = Math.random() * Math.PI * 2;
+                const phi = Math.acos(2 * Math.random() - 1);
+                
+                positions[i3] = r * Math.sin(phi) * Math.cos(theta);
+                positions[i3 + 1] = r * Math.sin(phi) * Math.sin(theta);
+                positions[i3 + 2] = r * Math.cos(phi);
+                
+                // Slight color variation (cool stars)
+                const c = new THREE.Color().setHSL(0.58 + Math.random() * 0.1, 0.3, 0.85 + Math.random() * 0.12);
+                colors[i3] = c.r;
+                colors[i3 + 1] = c.g;
+                colors[i3 + 2] = c.b;
+                
+                sizes[i] = 0.8 + Math.random() * 1.6;
+            }
+            
+            const geo = new THREE.BufferGeometry();
+            geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+            geo.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+            
+            const mat = new THREE.PointsMaterial({
+                size: 0.9,
+                vertexColors: true,
+                transparent: true,
+                opacity: 0.9,
+                depthWrite: false,
+                sizeAttenuation: true
+            });
+            
+            const stars = new THREE.Points(geo, mat);
+            scene.add(stars);
+        }
+        
+        function latLonToVector3(lat, lon, radius) {
+            // lat: -90 to 90, lon: -180 to 180
+            const phi = (90 - lat) * (Math.PI / 180);
+            const theta = (lon + 180) * (Math.PI / 180);
+            
+            const x = -(radius * Math.sin(phi) * Math.sin(theta));
+            const z = radius * Math.sin(phi) * Math.cos(theta);
+            const y = radius * Math.cos(phi);
+            
+            return new THREE.Vector3(x, y, z);
+        }
+        
+        function updateCameraPosition() {
+            const x = spherical.radius * Math.sin(spherical.phi) * Math.sin(spherical.theta);
+            const y = spherical.radius * Math.cos(spherical.phi);
+            const z = spherical.radius * Math.sin(spherical.phi) * Math.cos(spherical.theta);
+            
+            camera.position.set(x, y, z);
+            camera.lookAt(0, 0.8, 0); // Slight offset to center nicely
+        }
+        
+        function onResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+        
+        function onMouseDown(e) {
+            isDragging = true;
+            previousMouseX = e.clientX;
+            previousMouseY = e.clientY;
+        }
+        
+        function onMouseUp() {
+            isDragging = false;
+        }
+        
+        function onMouseMove(e) {
+            if (!isDragging) return;
+            
+            const deltaX = e.clientX - previousMouseX;
+            const deltaY = e.clientY - previousMouseY;
+            
+            spherical.theta -= deltaX * 0.0035;
+            spherical.phi -= deltaY * 0.0035;
+            
+            // Clamp vertical rotation
+            spherical.phi = Math.max(0.25, Math.min(Math.PI - 0.25, spherical.phi));
+            
+            updateCameraPosition();
+            
+            previousMouseX = e.clientX;
+            previousMouseY = e.clientY;
+        }
+        
+        function onWheel(e) {
+            e.preventDefault();
+            spherical.radius += e.deltaY * 0.035;
+            spherical.radius = Math.max(11, Math.min(48, spherical.radius));
+            updateCameraPosition();
+        }
+        
+        function onCanvasClick(e) {
+            // Raycast for markers
+            const rect = renderer.domElement.getBoundingClientRect();
+            mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+            mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+            
+            raycaster.setFromCamera(mouse, camera);
+            
+            const intersects = raycaster.intersectObjects(scene.children, true);
+            
+            for (let intersect of intersects) {
+                const obj = intersect.object;
+                let current = obj;
+                
+                // Walk up to find userData with id
+                while (current && !current.userData?.id) {
+                    current = current.parent;
+                }
+                
+                if (current && current.userData && current.userData.id && EXPERIENCES[current.userData.id]) {
+                    showExperienceModal(current.userData.id);
+                    return;
+                }
+            }
+        }
+        
+        // Touch handlers (simplified orbit)
+        let touchStartX = 0, touchStartY = 0;
+        
+        function onTouchStart(e) {
+            if (e.touches.length === 1) {
+                isDragging = true;
+                touchStartX = e.touches[0].clientX;
+                touchStartY = e.touches[0].clientY;
+            }
+        }
+        
+        function onTouchMove(e) {
+            if (!isDragging || e.touches.length !== 1) return;
+            e.preventDefault();
+            
+            const deltaX = e.touches[0].clientX - touchStartX;
+            const deltaY = e.touches[0].clientY - touchStartY;
+            
+            spherical.theta -= deltaX * 0.004;
+            spherical.phi -= deltaY * 0.004;
+            spherical.phi = Math.max(0.25, Math.min(Math.PI - 0.25, spherical.phi));
+            
+            updateCameraPosition();
+            
+            touchStartX = e.touches[0].clientX;
+            touchStartY = e.touches[0].clientY;
+        }
+        
+        function onTouchEnd() {
+            isDragging = false;
+        }
+        
+        function animate() {
+            animationFrame = requestAnimationFrame(animate);
+            
+            // Gentle bobbing animation for markers and labels
+            const time = Date.now() * 0.0015;
+            
+            Object.keys(markers).forEach(key => {
+                const obj = markers[key];
+                if (!obj) return;
+                
+                if (key.includes('_label')) {
+                    // Labels float gently
+                    const baseY = obj.position.y;
+                    obj.position.y = baseY + Math.sin(time * 1.8 + parseInt(key) * 0.7) * 0.08;
+                } else if (obj.userData?.type === 'marker') {
+                    // Slight hover / pulse for markers
+                    const baseScale = obj.userData.pulseScale || 1;
+                    const pulse = 1 + Math.sin(time * 2.2 + (obj.userData.id?.length || 0)) * 0.025;
+                    obj.scale.setScalar(baseScale * pulse);
+                }
+            });
+            
+            // Very subtle planet rotation (ambient)
+            if (planet) {
+                planet.rotation.y = Math.sin(time * 0.03) * 0.008;
+            }
+            
+            renderer.render(scene, camera);
+        }
+        
+        function showExperienceModal(id) {
+            const exp = EXPERIENCES[id];
+            if (!exp) return;
+            
+            currentSelectedId = id;
+            
+            // Populate modal
+            document.getElementById('modal-title').textContent = exp.title;
+            document.getElementById('modal-company').textContent = `${exp.role} @ ${exp.company}`;
+            document.getElementById('modal-period').textContent = `${exp.period} • ${exp.location}`;
+            
+            const content = document.getElementById('modal-content');
+            content.innerHTML = '';
+            
+            // Description
+            const desc = document.createElement('div');
+            desc.className = 'description';
+            desc.innerHTML = `<p>${exp.description}</p>`;
+            content.appendChild(desc);
+            
+            // Achievements
+            if (exp.achievements && exp.achievements.length) {
+                const achTitle = document.createElement('div');
+                achTitle.className = 'section-title';
+                achTitle.textContent = 'Key Achievements';
+                content.appendChild(achTitle);
+                
+                const ul = document.createElement('ul');
+                ul.className = 'achievements';
+                exp.achievements.forEach(item => {
+                    const li = document.createElement('li');
+                    li.textContent = item;
+                    ul.appendChild(li);
+                });
+                content.appendChild(ul);
+            }
+            
+            // Skills / Certs special handling
+            if (exp.skills && exp.skills.length) {
+                const skillTitle = document.createElement('div');
+                skillTitle.className = 'section-title';
+                skillTitle.textContent = id === 'certs' ? 'Certifications Earned' : 'Core Competencies';
+                content.appendChild(skillTitle);
+                
+                if (id === 'certs') {
+                    // Special beautiful grid for certifications
+                    const grid = document.createElement('div');
+                    grid.className = 'cert-grid';
+                    
+                    exp.skills.forEach(cert => {
+                        const badge = document.createElement('div');
+                        badge.className = 'cert-badge';
+                        badge.innerHTML = `<div class="cert-name">${cert}</div>`;
+                        grid.appendChild(badge);
+                    });
+                    
+                    content.appendChild(grid);
+                } else {
+                    const tags = document.createElement('div');
+                    tags.className = 'skills-tags';
+                    exp.skills.forEach(skill => {
+                        const tag = document.createElement('div');
+                        tag.className = 'skill-tag';
+                        tag.textContent = skill;
+                        tags.appendChild(tag);
+                    });
+                    content.appendChild(tags);
+                }
+            }
+            
+            // Update deliver button state
+            const deliverBtn = document.getElementById('deliver-btn');
+            if (delivered.has(id)) {
+                deliverBtn.textContent = '✓ Already Delivered';
+                deliverBtn.disabled = true;
+                deliverBtn.style.opacity = '0.6';
+            } else {
+                deliverBtn.textContent = 'Mark as Delivered ✓';
+                deliverBtn.disabled = false;
+                deliverBtn.style.opacity = '1';
+            }
+            
+            // Show modal
+            document.getElementById('modal').classList.add('visible');
+            document.getElementById('overlay').classList.add('visible');
+            
+            // Optional: animate camera toward the marker
+            focusCameraOnMarker(id);
+        }
+        
+        function focusCameraOnMarker(id) {
+            const marker = markers[id];
+            if (!marker) return;
+            
+            const targetPos = marker.position.clone();
+            const dir = targetPos.clone().normalize();
+            
+            // New spherical position looking at the marker from nice distance
+            const targetRadius = 15.5;
+            const targetPhi = Math.acos(dir.y);
+            let targetTheta = Math.atan2(dir.x, dir.z);
+            
+            // Animate camera (simple lerp over ~800ms)
+            const startTheta = spherical.theta;
+            const startPhi = spherical.phi;
+            const startRadius = spherical.radius;
+            
+            const duration = 780;
+            const startTime = Date.now();
+            
+            function animateCam() {
+                const elapsed = Date.now() - startTime;
+                const t = Math.min(elapsed / duration, 1);
+                const ease = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t; // easeInOutQuad
+                
+                spherical.theta = startTheta + (targetTheta - startTheta) * ease;
+                spherical.phi = startPhi + (targetPhi - startPhi) * ease;
+                spherical.radius = startRadius + (targetRadius - startRadius) * ease;
+                
+                updateCameraPosition();
+                
+                if (t < 1) {
+                    requestAnimationFrame(animateCam);
+                }
+            }
+            
+            animateCam();
+        }
+        
+        function closeModal() {
+            document.getElementById('modal').classList.remove('visible');
+            document.getElementById('overlay').classList.remove('visible');
+            currentSelectedId = null;
+        }
+        
+        function markAsDelivered() {
+            if (!currentSelectedId) return;
+            
+            delivered.add(currentSelectedId);
+            updateProgressUI();
+            
+            // Visual feedback on marker
+            const marker = markers[currentSelectedId];
+            if (marker) {
+                // Add a small green check or change appearance
+                marker.userData.delivered = true;
+                
+                // Optional: change a child material or add overlay
+                marker.traverse(child => {
+                    if (child.isMesh && child.material && child.material.color) {
+                        // Subtle tint toward green
+                        const original = child.material.color.getHex();
+                        child.material.color.setHex(0x4ade80);
+                        setTimeout(() => {
+                            if (child.material) child.material.color.setHex(original);
+                        }, 420);
+                    }
+                });
+            }
+            
+            // Update button
+            const btn = document.getElementById('deliver-btn');
+            btn.textContent = '✓ Delivered!';
+            btn.disabled = true;
+            
+            setTimeout(() => {
+                closeModal();
+            }, 650);
+            
+            // Easter egg: if all delivered
+            if (delivered.size === TOTAL_EXPERIENCES) {
+                setTimeout(() => {
+                    confettiBurst();
+                }, 900);
+            }
+        }
+        
+        function updateProgressUI() {
+            const count = delivered.size;
+            const pct = Math.round((count / TOTAL_EXPERIENCES) * 100);
+            
+            document.getElementById('progress-text').textContent = `${count}/${TOTAL_EXPERIENCES}`;
+            document.getElementById('progress-fill').style.width = `${pct}%`;
+            
+            const sub = document.getElementById('progress-sub');
+            if (count === 0) {
+                sub.textContent = 'Click glowing markers to explore & deliver';
+            } else if (count === TOTAL_EXPERIENCES) {
+                sub.innerHTML = '<span style="color:#4ade80">All experiences delivered! 🎉</span>';
+            } else {
+                sub.textContent = `${TOTAL_EXPERIENCES - count} remaining • Keep exploring the planet`;
+            }
+        }
+        
+        function resetCamera() {
+            // Smooth reset
+            const startTheta = spherical.theta;
+            const startPhi = spherical.phi;
+            const startR = spherical.radius;
+            
+            const targetTheta = 1.2;
+            const targetPhi = 1.05;
+            const targetR = 22;
+            
+            const duration = 650;
+            const startTime = Date.now();
+            
+            function step() {
+                const t = Math.min((Date.now() - startTime) / duration, 1);
+                const ease = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+                
+                spherical.theta = startTheta + (targetTheta - startTheta) * ease;
+                spherical.phi = startPhi + (targetPhi - startPhi) * ease;
+                spherical.radius = startR + (targetR - startR) * ease;
+                
+                updateCameraPosition();
+                
+                if (t < 1) requestAnimationFrame(step);
+            }
+            step();
+        }
+        
+        function generateResumePDF() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF({
+                orientation: 'portrait',
+                unit: 'mm',
+                format: 'a4'
+            });
+            
+            const pageWidth = doc.internal.pageSize.getWidth();
+            let y = 22;
+            
+            // Header
+            doc.setFontSize(22);
+            doc.setTextColor(15, 23, 42);
+            doc.text("Eugene Peh", 20, y);
+            y += 7;
+            
+            doc.setFontSize(12);
+            doc.setTextColor(71, 85, 105);
+            doc.text("Lead Researcher | Offensive Security | InnoEdge Labs", 20, y);
+            y += 5;
+            doc.text("Singapore  •  https://sg.linkedin.com/in/eugpeh", 20, y);
+            y += 10;
+            
+            // Horizontal line
+            doc.setDrawColor(34, 197, 94);
+            doc.setLineWidth(0.6);
+            doc.line(20, y, pageWidth - 20, y);
+            y += 10;
+            
+            // Intro
+            doc.setFontSize(11);
+            doc.setTextColor(30, 41, 59);
+            doc.text("Interactive 3D Career Journey — Refactored from messenger.abeto.co concept", 20, y);
+            y += 12;
+            
+            // Each experience
+            Object.keys(EXPERIENCES).forEach((key, idx) => {
+                const exp = EXPERIENCES[key];
+                
+                if (y > 245) {
+                    doc.addPage();
+                    y = 25;
+                }
+                
+                // Title
+                doc.setFontSize(13);
+                doc.setTextColor(15, 23, 42);
+                doc.text(exp.title, 20, y);
+                y += 5.5;
+                
+                doc.setFontSize(10.5);
+                doc.setTextColor(71, 85, 105);
+                doc.text(`${exp.role}  |  ${exp.company}  |  ${exp.period}`, 20, y);
+                y += 6;
+                
+                // Description (wrapped)
+                doc.setTextColor(51, 65, 85);
+                const splitDesc = doc.splitTextToSize(exp.description, pageWidth - 45);
+                doc.text(splitDesc, 20, y);
+                y += splitDesc.length * 5 + 3;
+                
+                // Achievements
+                if (exp.achievements && exp.achievements.length) {
+                    doc.setFontSize(10);
+                    doc.setTextColor(34, 197, 94);
+                    doc.text("→ Key Achievements:", 20, y);
+                    y += 5;
+                    
+                    doc.setTextColor(51, 65, 85);
+                    exp.achievements.forEach(ach => {
+                        const splitAch = doc.splitTextToSize("• " + ach, pageWidth - 48);
+                        doc.text(splitAch, 24, y);
+                        y += splitAch.length * 4.8;
+                    });
+                    y += 3;
+                }
+                
+                y += 6;
+            });
+            
+            // Footer
+            doc.setFontSize(9);
+            doc.setTextColor(100, 116, 139);
+            doc.text("Generated from EugPeh LinkedIn • Inspired by Abeto's Messenger", 20, 285);
+            
+            doc.save("EugPeh_3D_Resume.pdf");
+        }
+        
+        function confettiBurst() {
+            // Simple confetti using Three.js points (fun easter egg when all delivered)
+            const confettiCount = 180;
+            const positions = [];
+            const velocities = [];
+            const colors = [];
+            
+            for (let i = 0; i < confettiCount; i++) {
+                positions.push(
+                    (Math.random() - 0.5) * 18,
+                    12 + Math.random() * 18,
+                    (Math.random() - 0.5) * 18
+                );
+                velocities.push(
+                    (Math.random() - 0.5) * 0.18,
+                    -0.12 - Math.random() * 0.18,
+                    (Math.random() - 0.5) * 0.18
+                );
+                const c = new THREE.Color().setHSL(Math.random() * 0.3 + 0.25, 0.85, 0.65);
+                colors.push(c.r, c.g, c.b);
+            }
+            
+            const geo = new THREE.BufferGeometry();
+            geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+            geo.setAttribute('velocity', new THREE.Float32BufferAttribute(velocities, 3));
+            geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+            
+            const mat = new THREE.PointsMaterial({
+                size: 0.28,
+                vertexColors: true,
+                transparent: true,
+                opacity: 0.95,
+                depthWrite: false
+            });
+            
+            const points = new THREE.Points(geo, mat);
+            scene.add(points);
+            
+            let life = 0;
+            const maxLife = 125;
+            
+            function updateConfetti() {
+                life++;
+                const posAttr = geo.attributes.position;
+                const velAttr = geo.attributes.velocity;
+                
+                for (let i = 0; i < confettiCount; i++) {
+                    const i3 = i * 3;
+                    posAttr.array[i3] += velAttr.array[i3];
+                    posAttr.array[i3 + 1] += velAttr.array[i3 + 1];
+                    posAttr.array[i3 + 2] += velAttr.array[i3 + 2];
+                    
+                    // Gravity + slight wind
+                    velAttr.array[i3 + 1] -= 0.0035;
+                    velAttr.array[i3] *= 0.992;
+                    velAttr.array[i3 + 2] *= 0.992;
+                }
+                
+                posAttr.needsUpdate = true;
+                velAttr.needsUpdate = true;
+                
+                if (life < maxLife) {
+                    requestAnimationFrame(updateConfetti);
+                } else {
+                    scene.remove(points);
+                    geo.dispose();
+                    mat.dispose();
+                }
+            }
+            
+            updateConfetti();
+        }
+        
+        // Keyboard shortcuts
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                const modal = document.getElementById('modal');
+                if (modal.classList.contains('visible')) {
+                    closeModal();
+                } else {
+                    resetCamera();
+                }
+            }
+            if (e.key.toLowerCase() === 'r') {
+                resetCamera();
+            }
+            if (e.key.toLowerCase() === 'p' && document.getElementById('modal').classList.contains('visible')) {
+                markAsDelivered();
+            }
+        });
+        
+        // Boot everything
+        function boot() {
+            initThree();
+            
+            // Welcome message in console for devs
+            console.log('%c[EugPeh 3D Resume] refactored resume ready. Data-driven, easy to extend. Inspired by messenger.abeto.co', 'color:#64748b');
+            
+            // Optional: pre-deliver current role for nice first impression (comment out if not wanted)
+            // delivered.add('current');
+            // updateProgressUI();
+            
+            // Make sure initial render is good
+            setTimeout(() => {
+                renderer.render(scene, camera);
+            }, 80);
+            
+            // Accessibility note
+            console.log('%c[Controls] Drag: orbit • Scroll: zoom • Click markers: explore experiences • R: reset view • Esc: close modal', 'color:#475569');
+        }
+        
+        window.onload = boot;
+        
+        // Expose some API for easy customization (advanced users)
+        window.EugPehCareerMessenger = {
+            addExperience: (id, data) => { EXPERIENCES[id] = data; console.log('Added. Rebuild markers to see changes.'); },
+            getDelivered: () => Array.from(delivered),
+            resetProgress: () => { delivered.clear(); updateProgressUI(); }
+        };
+    </script>
+</body>
+</html>
